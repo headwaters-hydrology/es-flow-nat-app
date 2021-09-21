@@ -1,0 +1,8 @@
+remotes:
+  - bucket: es-hilltop
+    delimiter: /
+    connection_config: https://b2.tethys-ts.xyz
+  - bucket: nz-water-use
+    delimiter: /
+    connection_config: https://b2.tethys-ts.xyz
+cache_path: /cache

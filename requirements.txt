@@ -1,0 +1,10 @@
+plotly==4.14.3
+dash==1.20.0
+pandas==1.2.3
+requests==2.24.0
+tethysts==0.2.17
+rtree==0.9.7
+geopandas==0.8.1
+pyyaml==5.3.1
+gistools==1.2.26
+flask-caching==1.10.1

@@ -1,0 +1,93 @@
+version: '3.3'
+
+networks:
+  # net:
+  #   driver: overlay
+  #   attachable: true
+  traefik-public:
+    external: true
+
+services:
+  # db:
+  #   image: mongo:4.2-bionic
+  #   deploy:
+  #     placement:
+  #       constraints:
+  #         - node.hostname == esnode.nzrivers.xyz
+  #   command: --wiredTigerJournalCompressor zstd --wiredTigerCollectionBlockCompressor zstd
+  #   networks:
+  #     - net
+  #   # ports:
+  #   #   - "27017:27017"
+  # db-init:
+  #   image: tethysts/tethys-db-initialize:dev
+  #   volumes:
+  #       - "~/git/tethys/tethys-extraction-es-hilltop/plots/parameters.yml:/parameters.yml"
+  #   deploy:
+  #     restart_policy:
+  #       condition: none
+  #     placement:
+  #       constraints:
+  #         - node.hostname == esnode.nzrivers.xyz
+  #   networks:
+  #     - net
+  #   # volumes:
+  #   #     - "~/git/tethys/tethys-web-service/parameters.yml:/parameters.yml"
+  #   depends_on:
+  #     - "db"
+  # web-service-es:
+  #   image: tethysts/tethys-web-service:dev
+  #   depends_on:
+  #     - "db"
+  #   # ports:
+  #   #   - "8080:80"
+  #   # volumes:
+  #   #   - /var/run/docker.sock:/var/run/docker.sock:ro
+  #   networks:
+  #     - net
+  #     # - traefik-public
+  #   deploy:
+  #     placement:
+  #       constraints:
+  #         - node.hostname == esnode.nzrivers.xyz
+      # labels:
+      #   - traefik.enable=true
+      #   - traefik.docker.network=traefik-public
+      #   - traefik.constraint-label=traefik-public
+      #   - traefik.http.routers.tethys-api-http.rule=Host(`${DOMAIN1?Variable not set}`)
+      #   - traefik.http.routers.tethys-api-http.entrypoints=http
+      #   - traefik.http.routers.tethys-api-http.middlewares=https-redirect
+      #   - traefik.http.routers.tethys-api-https.rule=Host(`${DOMAIN1?Variable not set}`)
+      #   - traefik.http.routers.tethys-api-https.entrypoints=https
+      #   - traefik.http.routers.tethys-api-https.tls=true
+      #   - traefik.http.routers.tethys-api-https.tls.certresolver=le
+      #   - traefik.http.services.tethys-api.loadbalancer.server.port=80
+  dash:
+    image: tethysts/tethys-es-rivers-dash:1.4
+    # extra_hosts:
+    #   - "host.docker.internal:host-gateway"
+    # depends_on:
+    #   - "web-service"
+    # ports:
+    #   - "8081:80"
+    # volumes:
+    #   - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      # - net
+      - traefik-public
+    deploy:
+      placement:
+        constraints:
+          - node.labels.function == web_server
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=traefik-public
+        - traefik.constraint-label=traefik-public
+        - traefik.http.routers.es-dash-http.rule=Host(`es.nzrivers.xyz`)
+        - traefik.http.routers.es-dash-http.entrypoints=http
+        - traefik.http.routers.es-dash-http.middlewares=https-redirect
+        - traefik.http.routers.es-dash-https.rule=Host(`es.nzrivers.xyz`)
+        - traefik.http.routers.es-dash-https.entrypoints=https
+        - traefik.http.routers.es-dash-https.tls=true
+        # - traefik.http.routers.es-dash-https.tls.certresolver=le
+        - traefik.http.services.es-dash.loadbalancer.server.port=80
