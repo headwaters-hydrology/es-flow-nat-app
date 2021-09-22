@@ -6,3 +6,4 @@ remotes:
     delimiter: /
     connection_config: https://b2.tethys-ts.xyz
 cache_path: /cache
+# cache_path: /media/nvme1/data/cache

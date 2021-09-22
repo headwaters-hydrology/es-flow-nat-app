@@ -894,15 +894,19 @@ def serve_layout():
 #
     html.Div([
 
-        dcc.Tabs(id='plot_tabs', value='info_tab', children=[
-            dcc.Tab(label='Info', value='info_tab'),
-            dcc.Tab(label='Flow duration', value='fd_plot'),
-            dcc.Tab(label='Cumulative flow', value='cf_plot'),
-            dcc.Tab(label='Hydrograph', value='hydro_plot'),
-            dcc.Tab(label='Allocation', value='allo_plot'),
-            ]
-        ),
-        html.Div(id='plots'),
+        dcc.Loading(
+                id="loading-plots",
+                type="default",
+                children=[dcc.Tabs(id='plot_tabs', value='info_tab', children=[
+                            dcc.Tab(label='Info', value='info_tab'),
+                            dcc.Tab(label='Flow duration', value='fd_plot'),
+                            dcc.Tab(label='Cumulative flow', value='cf_plot'),
+                            dcc.Tab(label='Hydrograph', value='hydro_plot'),
+                            dcc.Tab(label='Allocation', value='allo_plot'),
+                            ]
+                        ),
+        html.Div(id='plots')
+        ]),
 
     dash_table.DataTable(
         id='summ_table',
