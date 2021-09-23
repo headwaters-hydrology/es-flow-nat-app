@@ -93,15 +93,6 @@ cache = Cache(server, config=cache_config)
 ### Functions
 
 
-# def encode_obj(obj, encoding="base64"):
-#     """
-
-#     """
-#     e1 = codecs.encode(pickle.dumps(obj), encoding).decode()
-
-#     return e1
-
-
 def encode_obj(obj):
     """
 
@@ -113,15 +104,6 @@ def encode_obj(obj):
     return c_obj
 
 
-# def decode_obj(obj, encoding="base64"):
-#     """
-
-#     """
-#     d1 = pickle.loads(codecs.decode(obj.encode(), encoding))
-
-#     return d1
-
-
 def decode_obj(str_obj):
     """
 
@@ -131,24 +113,6 @@ def decode_obj(str_obj):
     d1 = pickle.loads(obj1)
 
     return d1
-
-
-# def encode_df(df):
-#     """
-
-#     """
-#     p1 = codecs.encode(pickle.dumps(df), "base64").decode()
-
-#     return p1
-
-
-# def decode_df(str_encode):
-#     """
-
-#     """
-#     p1 = pickle.loads(codecs.decode(str_encode.encode(), "base64"))
-
-#     return p1
 
 
 def build_reg_table(site_summ):
@@ -183,8 +147,6 @@ def get_results(tethys, dataset_id, station_id, from_date=None, to_date=None):
 
     """
     data2 = tethys.get_results(dataset_id, station_id, from_date=None, to_date=None, squeeze_dims=True, output='Dataset')
-    # parameter = [t for t in data2 if 'dataset_id' in data2[t].attrs][0]
-    # data3 = data2[parameter]
     data3 = data2
     data3['time'] = pd.to_datetime(data3['time'].values) + pd.DateOffset(hours=12)
     coords = list(data3.coords)
@@ -229,33 +191,6 @@ def stns_dict_to_gdf(stns):
     stns_gpd1 = gpd.GeoDataFrame(df1, crs=4326, geometry=geo1)
 
     return stns_gpd1
-
-
-# def get_flow_combo(tethys, flow_stn_id, stn_dict, c_method, active):
-#     """
-
-#     """
-#     ## Get data
-#     # Nat flow
-#     nat_stn_data1 = stn_dict[active]['naturalised'][c_method]
-#     nat_stn_data2 = nat_stn_data1[nat_stn_data1['station_id'] == flow_stn_id].iloc[0]
-#     nat_ds_id = nat_stn_data2['dataset_id']
-#     stn_ref = nat_stn_data2['ref']
-
-#     nat_data1 = get_results(tethys, nat_ds_id, flow_stn_id)
-
-#     # Meas flow
-#     meas_stn_data1 = stn_dict[active]['measured'][c_method]
-#     meas_stn_data2 = meas_stn_data1[meas_stn_data1['station_id'] == flow_stn_id].iloc[0]
-#     meas_ds_id = meas_stn_data2['dataset_id']
-
-#     meas_data1 = get_results(tethys, meas_ds_id, flow_stn_id)
-
-#     ## Combine
-#     flow1 = xr.merge([meas_data1, nat_data1], compat='override').to_dataframe()
-#     flow1.rename(columns={'streamflow': 'flow', 'naturalised_streamflow': 'nat flow'}, inplace=True)
-
-#     return flow1, stn_ref
 
 
 def combine_flows(flow_meas, flow_nat):
@@ -315,11 +250,6 @@ def get_flow_allo(allo, use, flow_meas):
     # Meas flow Q95
     flow_q95 = flow_meas['streamflow'].quantile(0.05).values
 
-    # ## Create abstraction dataset
-    # use1 = (flow1['nat flow'] - flow1['flow']).dropna()
-    # use1[use1 < 0] = 0
-    # use1.name = 'water_use'
-
     ## Combine
     # allo_use1 = pd.concat([flow1, allo1, use1], axis=1).dropna()
     allo_use1 = xr.merge([allo1, use1], compat='override').to_dataframe().dropna()
@@ -335,20 +265,6 @@ def get_cumulative_flows(flow_meas):
     today1 = pd.Timestamp.now()
 
     ## Get data
-    # Nat flow
-    # nat_stn_data1 = stn_dict[active]['naturalised'][c_method]
-    # nat_stn_data2 = nat_stn_data1[nat_stn_data1['station_id'] == flow_stn_id].iloc[0]
-    # nat_ds_id = nat_stn_data2['dataset_id']
-    # stn_ref = nat_stn_data2['ref']
-
-    # nat_data1 = get_results(base_url, nat_ds_id, flow_stn_id)
-
-    # measured flow
-    # nat_stn_data1 = stn_dict[active]['measured'][c_method]
-    # nat_stn_data2 = nat_stn_data1[nat_stn_data1['station_id'] == flow_stn_id].iloc[0]
-    # nat_ds_id = nat_stn_data2['dataset_id']
-    # stn_ref = nat_stn_data2['ref']
-
     stn_ref = str(flow_meas['ref'].values)
 
     meas_data1 = flow_meas['streamflow']
@@ -777,10 +693,6 @@ def get_flow_stn_list(stn_dict, c_method, active):
     return sites2
 
 
-# allocation
-# allo_stns = get_stations(base_url, allo_ds['dataset_id'])
-# allo_stn_data = stns_dict_to_gdf(allo_stns)
-
 ############################################
 ### The app
 map_layout = dict(mapbox = dict(layers = [], accesstoken = mapbox_access_token, style = "outdoors", center=dict(lat=lat1, lon=lon1), zoom=zoom1), margin = dict(r=0, l=0, t=0, b=0), autosize=True, hovermode='closest', height=map_height, showlegend = True, legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01))
@@ -843,7 +755,6 @@ def serve_layout():
 
     # Flow nat
     fn_stns = get_stations(tethys, fn_ds['dataset_id'])
-    # fn_stns_active = [s for s in fn_stns if pd.Timestamp(s['time_range']['to_date']) > last_year]
 
     rec_fn_stns = [s for s in fn_stns if s['station_id'] in rec_stns_ids]
     man_fn_stns = [s for s in fn_stns if s['station_id'] in man_stns_ids]
@@ -973,22 +884,17 @@ def serve_layout():
 
     ], className='six columns', style={'margin': 10, 'height': 900}),
     dcc.Store(id='tethys', data=encode_obj(tethys)),
-#     dcc.Store(id='catch_data', data=orjson.dumps(catch_data).decode()),
     dcc.Store(id='flow_meas', data=''),
     dcc.Store(id='flow_nat', data=''),
     dcc.Store(id='allocation', data=''),
     dcc.Store(id='abstraction', data=''),
     dcc.Store(id='stn_dict', data=encode_obj(stn_dict)),
-    # dcc.Store(id='meas_flow_stn_data', data=encode_df(meas_flow_stn_data)),
     dcc.Store(id='wap_stn_data', data=encode_obj(wap_stn_data)),
     dcc.Store(id='stn_names', data=orjson.dumps(stn_name_dict).decode()),
     dcc.Store(id='ds_ids', data=orjson.dumps(ds_ids_dict).decode()),
-    # dcc.Store(id='allo_ds_id', data=allo_ds_id),
-    # dcc.Store(id='flow_use_ds_id', data=flow_use_ds_id),
     dcc.Store(id='run_date', data=str(run_date)),
     dcc.Store(id='last_month', data=str(last_month)),
     dcc.Store(id='last_year', data=str(last_year)),
-    # dcc.Store(id='map_layout', data=orjson.dumps(map_layout).decode())
 ], style={'margin':0})
 
     return layout
@@ -1175,6 +1081,7 @@ def get_abstraction_data(flow_stn_id, tethys_obj, ds_ids_str, last_month, last_y
 
         return ts1_obj
 
+
 @app.callback(Output('plots', 'children'),
               [Input('plot_tabs', 'value'), Input('flow_meas', 'data')],
               [State('flow_nat', 'data'), State('allocation', 'data'), State('abstraction', 'data'), State('last_month', 'data'), State('last_year', 'data')])
@@ -1221,11 +1128,6 @@ def render_plot(tab, flow_meas_str, flow_nat_str, allo_str, use_str, last_month,
         fig1 = info_str
 
     else:
-        # flow_meas = decode_obj(flow_meas_str)
-        # ds_ids = orjson.loads(ds_ids_str)
-        # stn_dict = decode_obj(stn_dict_str)
-        # meas_flow_stn_data1 = stn_dict[active]['measured'][c_method]
-        # meas1 = meas_flow_stn_data1[meas_flow_stn_data1['station_id'] == flow_stn_id]
 
         if len(flow_meas_str) > 1:
 
@@ -1250,7 +1152,6 @@ def render_plot(tab, flow_meas_str, flow_nat_str, allo_str, use_str, last_month,
                 flow_meas = decode_obj(flow_meas_str)
                 allo = decode_obj(allo_str)
                 use = decode_obj(use_str)
-                # flow_nat = decode_obj(flow_nat_str)
 
                 fig1 = fig_allo_use(allo, use, flow_meas)
         else:
