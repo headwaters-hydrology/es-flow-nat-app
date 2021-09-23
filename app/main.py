@@ -77,7 +77,7 @@ collection_methods = ['Gauging', 'Recorder']
 
 catch_key_base = 'tethys/station_misc/{station_id}/catchment.geojson.zst'
 
-summ_table_cols = ['Station reference', 'Min Value', 'Max Value', 'Start Date', 'End Date']
+summ_table_cols = ['Station reference', 'Min', 'Median', 'Max', 'Start Date', 'End Date']
 reg_table_cols = ['NRMSE', 'MANE', 'Adj R2', 'Number of observations', 'Correlated sites', 'F value']
 
 cache_config = {
@@ -93,40 +93,62 @@ cache = Cache(server, config=cache_config)
 ### Functions
 
 
-def encode_obj(obj, encoding="base64"):
+# def encode_obj(obj, encoding="base64"):
+#     """
+
+#     """
+#     e1 = codecs.encode(pickle.dumps(obj), encoding).decode()
+
+#     return e1
+
+
+def encode_obj(obj):
     """
 
     """
-    e1 = codecs.encode(pickle.dumps(obj), encoding).decode()
+    cctx = zstd.ZstdCompressor(level=1)
+    c_obj = codecs.encode(cctx.compress(pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL)), encoding="base64").decode()
 
-    return e1
+
+    return c_obj
 
 
-def decode_obj(obj, encoding="base64"):
+# def decode_obj(obj, encoding="base64"):
+#     """
+
+#     """
+#     d1 = pickle.loads(codecs.decode(obj.encode(), encoding))
+
+#     return d1
+
+
+def decode_obj(str_obj):
     """
 
     """
-    d1 = pickle.loads(codecs.decode(obj.encode(), encoding))
+    dctx = zstd.ZstdDecompressor()
+    obj1 = dctx.decompress(codecs.decode(str_obj.encode(), encoding="base64"))
+    d1 = pickle.loads(obj1)
 
     return d1
 
 
-def encode_df(df):
-    """
+# def encode_df(df):
+#     """
 
-    """
-    p1 = codecs.encode(pickle.dumps(df), "base64").decode()
+#     """
+#     p1 = codecs.encode(pickle.dumps(df), "base64").decode()
 
-    return p1
+#     return p1
 
 
-def decode_df(str_encode):
-    """
+# def decode_df(str_encode):
+#     """
 
-    """
-    p1 = pickle.loads(codecs.decode(str_encode.encode(), "base64"))
+#     """
+#     p1 = pickle.loads(codecs.decode(str_encode.encode(), "base64"))
 
-    return p1
+#     return p1
 
 
 def build_reg_table(site_summ):
@@ -142,7 +164,7 @@ def build_summ_table(site_summ):
     """
 
     """
-    table1 = [{'Station reference': s['ref'], 'Min Value': s['min'], 'Max Value': s['max'], 'Start Date': (s['from_date'] + pd.DateOffset(hours=12)).strftime('%Y-%m-%d'), 'End Date': (s['to_date'] + pd.DateOffset(hours=12)).strftime('%Y-%m-%d')} for i, s in site_summ.iterrows()]
+    table1 = [{'Station reference': s['ref'], 'Min': s['min'], 'Median': s['median'], 'Max': s['max'], 'Start Date': (s['from_date'] + pd.DateOffset(hours=12)).strftime('%Y-%m-%d'), 'End Date': (s['to_date'] + pd.DateOffset(hours=12)).strftime('%Y-%m-%d')} for i, s in site_summ.iterrows()]
 
     return table1
 
@@ -161,8 +183,9 @@ def get_results(tethys, dataset_id, station_id, from_date=None, to_date=None):
 
     """
     data2 = tethys.get_results(dataset_id, station_id, from_date=None, to_date=None, squeeze_dims=True, output='Dataset')
-    parameter = [t for t in data2 if 'dataset_id' in data2[t].attrs][0]
-    data3 = data2[parameter]
+    # parameter = [t for t in data2 if 'dataset_id' in data2[t].attrs][0]
+    # data3 = data2[parameter]
+    data3 = data2
     data3['time'] = pd.to_datetime(data3['time'].values) + pd.DateOffset(hours=12)
     coords = list(data3.coords)
     if 'geometry' in coords:
@@ -195,7 +218,7 @@ def stns_dict_to_gdf(stns):
     stns1 = copy.deepcopy(stns)
     geo1 = [shapely.geometry.Point(s['geometry']['coordinates']) for s in stns1]
 
-    [s.update({'min': s['stats']['min'], 'max': s['stats']['max'], 'from_date': s['time_range']['from_date'], 'to_date': s['time_range']['to_date']}) for s in stns1]
+    [s.update({'min': s['stats']['min'], 'max': s['stats']['max'], 'median': s['stats']['median'], 'from_date': s['time_range']['from_date'], 'to_date': s['time_range']['to_date']}) for s in stns1]
     [(s.pop('stats'), s.pop('geometry'), s.pop('time_range')) for s in stns1]
 
     df1 = pd.DataFrame(stns1)
@@ -208,25 +231,41 @@ def stns_dict_to_gdf(stns):
     return stns_gpd1
 
 
-def get_flow_combo(tethys, flow_stn_id, stn_dict, c_method, active):
+# def get_flow_combo(tethys, flow_stn_id, stn_dict, c_method, active):
+#     """
+
+#     """
+#     ## Get data
+#     # Nat flow
+#     nat_stn_data1 = stn_dict[active]['naturalised'][c_method]
+#     nat_stn_data2 = nat_stn_data1[nat_stn_data1['station_id'] == flow_stn_id].iloc[0]
+#     nat_ds_id = nat_stn_data2['dataset_id']
+#     stn_ref = nat_stn_data2['ref']
+
+#     nat_data1 = get_results(tethys, nat_ds_id, flow_stn_id)
+
+#     # Meas flow
+#     meas_stn_data1 = stn_dict[active]['measured'][c_method]
+#     meas_stn_data2 = meas_stn_data1[meas_stn_data1['station_id'] == flow_stn_id].iloc[0]
+#     meas_ds_id = meas_stn_data2['dataset_id']
+
+#     meas_data1 = get_results(tethys, meas_ds_id, flow_stn_id)
+
+#     ## Combine
+#     flow1 = xr.merge([meas_data1, nat_data1], compat='override').to_dataframe()
+#     flow1.rename(columns={'streamflow': 'flow', 'naturalised_streamflow': 'nat flow'}, inplace=True)
+
+#     return flow1, stn_ref
+
+
+def combine_flows(flow_meas, flow_nat):
     """
 
     """
-    ## Get data
-    # Nat flow
-    nat_stn_data1 = stn_dict[active]['naturalised'][c_method]
-    nat_stn_data2 = nat_stn_data1[nat_stn_data1['station_id'] == flow_stn_id].iloc[0]
-    nat_ds_id = nat_stn_data2['dataset_id']
-    stn_ref = nat_stn_data2['ref']
+    stn_ref = str(flow_meas['ref'].values)
 
-    nat_data1 = get_results(tethys, nat_ds_id, flow_stn_id)
-
-    # Meas flow
-    meas_stn_data1 = stn_dict[active]['measured'][c_method]
-    meas_stn_data2 = meas_stn_data1[meas_stn_data1['station_id'] == flow_stn_id].iloc[0]
-    meas_ds_id = meas_stn_data2['dataset_id']
-
-    meas_data1 = get_results(tethys, meas_ds_id, flow_stn_id)
+    meas_data1 = flow_meas['streamflow']
+    nat_data1 = flow_nat['naturalised_streamflow']
 
     ## Combine
     flow1 = xr.merge([meas_data1, nat_data1], compat='override').to_dataframe()
@@ -236,12 +275,12 @@ def get_flow_combo(tethys, flow_stn_id, stn_dict, c_method, active):
 
 
 @cache.memoize()
-def get_flow_duration(tethys, flow_stn_id, stn_dict, c_method, active):
+def get_flow_duration(flow_meas, flow_nat):
     """
 
     """
     ## Get data
-    flow1, stn_ref = get_flow_combo(tethys, flow_stn_id, stn_dict, c_method, active)
+    flow1, stn_ref = combine_flows(flow_meas, flow_nat)
 
     ## Measured flow
     flow0 = flow1[['flow']].dropna().copy()
@@ -263,32 +302,18 @@ def get_flow_duration(tethys, flow_stn_id, stn_dict, c_method, active):
 
 
 @cache.memoize()
-def get_flow_allo(tethys, flow_stn_id, stn_dict, c_method, active, allo_ds_id, flow_use_ds_id, last_month, last_year):
+def get_flow_allo(allo, use, flow_meas):
     """
 
     """
+    stn_ref = str(allo['ref'].values)
+
     ## Get data
-    meas_stn_data1 = stn_dict[active]['measured'][c_method]
-    meas_stn_data2 = meas_stn_data1[meas_stn_data1['station_id'] == flow_stn_id].iloc[0]
-    # meas_ds_id = meas_stn_data2['dataset_id']
-    stn_ref = meas_stn_data2['ref']
+    allo1 = allo['allocation']
+    use1 = use['water_use']
 
-    # flow = get_results(base_url, meas_ds_id, flow_stn_id, last_year, last_month)
-    # flow1 = flow.to_dataframe()
-
-    allo = get_results(tethys, allo_ds_id, flow_stn_id, last_year, last_month)
-    allo1 = allo.to_dataframe()
-
-    use0 = get_results(tethys, flow_use_ds_id, flow_stn_id, last_year, last_month)
-    use1 = use0.to_dataframe()
-
-    # Meas flow
-    meas_stn_data1 = stn_dict[active]['measured'][c_method]
-    meas_stn_data2 = meas_stn_data1[meas_stn_data1['station_id'] == flow_stn_id].iloc[0]
-    meas_ds_id = meas_stn_data2['dataset_id']
-
-    meas_data1 = get_results(tethys, meas_ds_id, flow_stn_id).to_dataframe()
-    flow_q95 = meas_data1['streamflow'].quantile(0.05)
+    # Meas flow Q95
+    flow_q95 = flow_meas['streamflow'].quantile(0.05).values
 
     # ## Create abstraction dataset
     # use1 = (flow1['nat flow'] - flow1['flow']).dropna()
@@ -297,13 +322,13 @@ def get_flow_allo(tethys, flow_stn_id, stn_dict, c_method, active, allo_ds_id, f
 
     ## Combine
     # allo_use1 = pd.concat([flow1, allo1, use1], axis=1).dropna()
-    allo_use1 = pd.concat([allo1, use1], axis=1).dropna()
+    allo_use1 = xr.merge([allo1, use1], compat='override').to_dataframe().dropna()
 
     return allo_use1, stn_ref, flow_q95
 
 
 @cache.memoize()
-def get_cumulative_flows(tethys, flow_stn_id, stn_dict, c_method, active):
+def get_cumulative_flows(flow_meas):
     """
 
     """
@@ -319,14 +344,16 @@ def get_cumulative_flows(tethys, flow_stn_id, stn_dict, c_method, active):
     # nat_data1 = get_results(base_url, nat_ds_id, flow_stn_id)
 
     # measured flow
-    nat_stn_data1 = stn_dict[active]['measured'][c_method]
-    nat_stn_data2 = nat_stn_data1[nat_stn_data1['station_id'] == flow_stn_id].iloc[0]
-    nat_ds_id = nat_stn_data2['dataset_id']
-    stn_ref = nat_stn_data2['ref']
+    # nat_stn_data1 = stn_dict[active]['measured'][c_method]
+    # nat_stn_data2 = nat_stn_data1[nat_stn_data1['station_id'] == flow_stn_id].iloc[0]
+    # nat_ds_id = nat_stn_data2['dataset_id']
+    # stn_ref = nat_stn_data2['ref']
 
-    nat_data1 = get_results(tethys, nat_ds_id, flow_stn_id)
+    stn_ref = str(flow_meas['ref'].values)
 
-    flow4 = nat_data1.to_dataframe().dropna()
+    meas_data1 = flow_meas['streamflow']
+
+    flow4 = meas_data1.to_dataframe().dropna()
 
     ## Process data
     flow4.rename(columns={'streamflow': 'flow'}, inplace=True)
@@ -381,7 +408,7 @@ def get_cumulative_flows(tethys, flow_stn_id, stn_dict, c_method, active):
         return x, x_rev, median_day, q95_day, q95_day_rev, q5_day, q5_day_rev, stn_ref, median_year, q95_year, q5_year, current_cumsum1, today_dayofyear
 
 
-def fig_flow_duration(tethys, flow_stn_id, stn_dict, c_method, active):
+def fig_flow_duration(flow_meas, flow_nat):
     """
 
     """
@@ -390,7 +417,7 @@ def fig_flow_duration(tethys, flow_stn_id, stn_dict, c_method, active):
     print('fig_fd triggered')
 
     ## Get data
-    flow2, flow3, stn_ref = get_flow_duration(tethys, flow_stn_id, stn_dict, c_method, active)
+    flow2, flow3, stn_ref = get_flow_duration(flow_meas, flow_nat)
 
     orig = go.Scattergl(
         x=flow2['rank_percent_flow'],
@@ -446,11 +473,11 @@ def fig_flow_duration(tethys, flow_stn_id, stn_dict, c_method, active):
     return fig
 
 
-def fig_cumulative_flow(tethys, flow_stn_id, stn_dict, c_method, active):
+def fig_cumulative_flow(flow_nat):
     """
 
     """
-    results = get_cumulative_flows(tethys, flow_stn_id, stn_dict, c_method, active)
+    results = get_cumulative_flows(flow_nat)
 
     if results is None:
         return 'Not enough years for statistics'
@@ -524,14 +551,14 @@ def fig_cumulative_flow(tethys, flow_stn_id, stn_dict, c_method, active):
         return fig
 
 
-def fig_hydrograph(tethys, flow_stn_id, stn_dict, c_method, active):
+def fig_hydrograph(flow_meas, flow_nat):
     """
 
     """
     colors1 = ['rgb(102,194,165)', 'red', 'rgb(252,141,0)', 'rgb(141,160,203)']
 
     ## Get data
-    flow1, stn_ref = get_flow_combo(tethys, flow_stn_id, stn_dict, c_method, active)
+    flow1, stn_ref = combine_flows(flow_meas, flow_nat)
     flow2 = flow1.resample('D').first().interpolate('linear', limit=7)
 
     orig = go.Scattergl(
@@ -569,14 +596,14 @@ def fig_hydrograph(tethys, flow_stn_id, stn_dict, c_method, active):
     return fig
 
 
-def fig_allo_use(tethys, flow_stn_id, stn_dict, c_method, active, allo_ds_id, flow_use_ds_id, last_month, last_year):
+def fig_allo_use(allo, use, flow_meas):
     """
 
     """
     colors1 = ['rgb(102,194,165)', 'red', 'rgb(252,141,0)', 'rgb(141,160,203)']
 
     ## Get data
-    allo_use1, stn_ref, flow_q95 = get_flow_allo(tethys, flow_stn_id, stn_dict, c_method, active, allo_ds_id, flow_use_ds_id, last_month, last_year)
+    allo_use1, stn_ref, flow_q95 = get_flow_allo(allo, use, flow_meas)
 
     allo = go.Scattergl(
         x=allo_use1.index,
@@ -787,6 +814,19 @@ def serve_layout():
     allo_ds_id = allo_ds['dataset_id']
     flow_use_ds_id = flow_use_ds['dataset_id']
 
+    ds_ids_dict =   {'measured':
+                        {'Recorder': rec_flow_ds['dataset_id'],
+                         'Gauging': man_flow_ds['dataset_id']
+                         },
+                    'naturalised':
+                        {'Recorder': fn_ds['dataset_id'],
+                         'Gauging': fn_ds['dataset_id']
+                         },
+                    'allocation': allo_ds_id,
+                    'abstraction': flow_use_ds_id
+                    }
+
+
     ## Get stations
     # rec flow
     rec_stns = get_stations(tethys, rec_flow_ds['dataset_id'])
@@ -934,12 +974,17 @@ def serve_layout():
     ], className='six columns', style={'margin': 10, 'height': 900}),
     dcc.Store(id='tethys', data=encode_obj(tethys)),
 #     dcc.Store(id='catch_data', data=orjson.dumps(catch_data).decode()),
-    dcc.Store(id='stn_dict', data=encode_df(stn_dict)),
+    dcc.Store(id='flow_meas', data=''),
+    dcc.Store(id='flow_nat', data=''),
+    dcc.Store(id='allocation', data=''),
+    dcc.Store(id='abstraction', data=''),
+    dcc.Store(id='stn_dict', data=encode_obj(stn_dict)),
     # dcc.Store(id='meas_flow_stn_data', data=encode_df(meas_flow_stn_data)),
-    dcc.Store(id='wap_stn_data', data=encode_df(wap_stn_data)),
+    dcc.Store(id='wap_stn_data', data=encode_obj(wap_stn_data)),
     dcc.Store(id='stn_names', data=orjson.dumps(stn_name_dict).decode()),
-    dcc.Store(id='allo_ds_id', data=allo_ds_id),
-    dcc.Store(id='flow_use_ds_id', data=flow_use_ds_id),
+    dcc.Store(id='ds_ids', data=orjson.dumps(ds_ids_dict).decode()),
+    # dcc.Store(id='allo_ds_id', data=allo_ds_id),
+    # dcc.Store(id='flow_use_ds_id', data=flow_use_ds_id),
     dcc.Store(id='run_date', data=str(run_date)),
     dcc.Store(id='last_month', data=str(last_month)),
     dcc.Store(id='last_year', data=str(last_year)),
@@ -989,7 +1034,7 @@ def update_sites_values(selectedData, clickData):
 @cache.memoize()
 def update_summ_table(site, stn_dict_str, c_method, active):
     if site is not None:
-        stn_dict = decode_df(stn_dict_str)
+        stn_dict = decode_obj(stn_dict_str)
         meas_flow_stn_data1 = stn_dict[active]['measured'][c_method]
         meas1 = meas_flow_stn_data1[meas_flow_stn_data1['station_id'] == site]
 
@@ -1012,7 +1057,7 @@ def update_summ_table(site, stn_dict_str, c_method, active):
 def update_reg_table(site, stn_dict_str, c_method, active):
     if site is not None:
         if c_method == 'Gauging':
-            stn_dict = decode_df(stn_dict_str)
+            stn_dict = decode_obj(stn_dict_str)
             meas_flow_stn_data1 = stn_dict[active]['naturalised'][c_method]
             meas1 = meas_flow_stn_data1[meas_flow_stn_data1['station_id'] == site]
             # print(meas1)
@@ -1050,11 +1095,11 @@ def update_sites_options(c_method, active, stn_names_json):
 def render_map_complex(c_method, flow_stn_id, active, stn_dict_str, wap_stn_data_str, old_fig):
     # print(flow_stn_id)
 
-    stn_dict = decode_df(stn_dict_str)
+    stn_dict = decode_obj(stn_dict_str)
     map_layout = old_fig['layout']
 
     if isinstance(flow_stn_id, str):
-        wap_stn_data = decode_df(wap_stn_data_str)
+        wap_stn_data = decode_obj(wap_stn_data_str)
 
         fig_mp = plot_catch_map(stn_dict, c_method, active, map_layout, wap_stn_data, flow_stn_id)
     else:
@@ -1063,11 +1108,78 @@ def render_map_complex(c_method, flow_stn_id, active, stn_dict_str, wap_stn_data
     return fig_mp
 
 
+@app.callback(
+    Output('flow_meas', 'data'),
+    [Input('sites', 'value')],
+    [State('tethys', 'data'), State('ds_ids', 'data'), State('method_dd', 'value')])
+# @cache.memoize()
+def get_flow_meas_data(flow_stn_id, tethys_obj, ds_ids_str, c_method):
+    if isinstance(flow_stn_id, str):
+        tethys = decode_obj(tethys_obj)
+        ds_id = orjson.loads(ds_ids_str)['measured'][c_method]
+
+        ts1 = get_results(tethys, ds_id, flow_stn_id)
+
+        ts1_obj = encode_obj(ts1)
+
+        return ts1_obj
+
+
+@app.callback(
+    Output('flow_nat', 'data'),
+    [Input('sites', 'value')],
+    [State('tethys', 'data'), State('ds_ids', 'data'), State('method_dd', 'value')])
+# @cache.memoize()
+def get_flow_nat_data(flow_stn_id, tethys_obj, ds_ids_str, c_method):
+    if isinstance(flow_stn_id, str):
+        tethys = decode_obj(tethys_obj)
+        ds_id = orjson.loads(ds_ids_str)['naturalised'][c_method]
+
+        ts1 = get_results(tethys, ds_id, flow_stn_id)
+
+        ts1_obj = encode_obj(ts1)
+
+        return ts1_obj
+
+
+@app.callback(
+    Output('allocation', 'data'),
+    [Input('sites', 'value')],
+    [State('tethys', 'data'), State('ds_ids', 'data'), State('last_month', 'data'), State('last_year', 'data')])
+# @cache.memoize()
+def get_allocation_data(flow_stn_id, tethys_obj, ds_ids_str, last_month, last_year):
+    if isinstance(flow_stn_id, str):
+        tethys = decode_obj(tethys_obj)
+        ds_id = orjson.loads(ds_ids_str)['allocation']
+
+        ts1 = get_results(tethys, ds_id, flow_stn_id, last_year, last_month)
+
+        ts1_obj = encode_obj(ts1)
+
+        return ts1_obj
+
+
+@app.callback(
+    Output('abstraction', 'data'),
+    [Input('sites', 'value')],
+    [State('tethys', 'data'), State('ds_ids', 'data'), State('last_month', 'data'), State('last_year', 'data')])
+# @cache.memoize()
+def get_abstraction_data(flow_stn_id, tethys_obj, ds_ids_str, last_month, last_year):
+    if isinstance(flow_stn_id, str):
+        tethys = decode_obj(tethys_obj)
+        ds_id = orjson.loads(ds_ids_str)['abstraction']
+
+        ts1 = get_results(tethys, ds_id, flow_stn_id, last_year, last_month)
+
+        ts1_obj = encode_obj(ts1)
+
+        return ts1_obj
+
 @app.callback(Output('plots', 'children'),
-              [Input('plot_tabs', 'value'), Input('sites', 'value')],
-              [State('stn_dict', 'data'), State('method_dd', 'value'), State('active_select', 'value'), State('allo_ds_id', 'data'), State('flow_use_ds_id', 'data'), State('last_month', 'data'), State('last_year', 'data'), State('tethys', 'data')])
+              [Input('plot_tabs', 'value'), Input('flow_meas', 'data')],
+              [State('flow_nat', 'data'), State('allocation', 'data'), State('abstraction', 'data'), State('last_month', 'data'), State('last_year', 'data')])
 @cache.memoize()
-def render_plot(tab, flow_stn_id, stn_dict_str, c_method, active, allo_ds_id, flow_use_ds_id, last_month, last_year, tethys_obj):
+def render_plot(tab, flow_meas_str, flow_nat_str, allo_str, use_str, last_month, last_year):
 
     # print(flow_stn_id)
 
@@ -1109,24 +1221,38 @@ def render_plot(tab, flow_stn_id, stn_dict_str, c_method, active, allo_ds_id, fl
         fig1 = info_str
 
     else:
-        tethys = decode_obj(tethys_obj)
-        stn_dict = decode_df(stn_dict_str)
-        meas_flow_stn_data1 = stn_dict[active]['measured'][c_method]
-        meas1 = meas_flow_stn_data1[meas_flow_stn_data1['station_id'] == flow_stn_id]
+        # flow_meas = decode_obj(flow_meas_str)
+        # ds_ids = orjson.loads(ds_ids_str)
+        # stn_dict = decode_obj(stn_dict_str)
+        # meas_flow_stn_data1 = stn_dict[active]['measured'][c_method]
+        # meas1 = meas_flow_stn_data1[meas_flow_stn_data1['station_id'] == flow_stn_id]
 
-        if not meas1.empty:
+        if len(flow_meas_str) > 1:
 
             if tab == 'fd_plot':
-                fig1 = fig_flow_duration(tethys, flow_stn_id, stn_dict, c_method, active)
+                flow_meas = decode_obj(flow_meas_str)
+                flow_nat = decode_obj(flow_nat_str)
+
+                fig1 = fig_flow_duration(flow_meas, flow_nat)
 
             elif tab == 'cf_plot':
-                fig1 = fig_cumulative_flow(tethys, flow_stn_id, stn_dict, c_method, active)
+                flow_meas = decode_obj(flow_meas_str)
+
+                fig1 = fig_cumulative_flow(flow_meas)
 
             elif tab == 'hydro_plot':
-                fig1 = fig_hydrograph(tethys, flow_stn_id, stn_dict, c_method, active)
+                flow_meas = decode_obj(flow_meas_str)
+                flow_nat = decode_obj(flow_nat_str)
+
+                fig1 = fig_hydrograph(flow_meas, flow_nat)
 
             elif tab == 'allo_plot':
-                fig1 = fig_allo_use(tethys, flow_stn_id, stn_dict, c_method, active, allo_ds_id, flow_use_ds_id, last_month, last_year)
+                flow_meas = decode_obj(flow_meas_str)
+                allo = decode_obj(allo_str)
+                use = decode_obj(use_str)
+                # flow_nat = decode_obj(flow_nat_str)
+
+                fig1 = fig_allo_use(allo, use, flow_meas)
         else:
             fig1 = info_str
 

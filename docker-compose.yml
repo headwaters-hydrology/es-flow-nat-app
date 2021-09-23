@@ -19,7 +19,7 @@ services:
     # ports:
     #   - "8080:80"
   es-rivers-dash:
-    image: tethysts/tethys-es-rivers-dash:1.4
+    image: tethysts/tethys-es-rivers-dash:1.5
     # extra_hosts:
     #   - "host.docker.internal:host-gateway"
     # depends_on:
