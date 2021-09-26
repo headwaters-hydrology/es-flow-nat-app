@@ -77,7 +77,7 @@ collection_methods = ['Gauging', 'Recorder']
 
 catch_key_base = 'tethys/station_misc/{station_id}/catchment.geojson.zst'
 
-summ_table_cols = ['Station reference', 'Min', 'Median', 'Max', 'Start Date', 'End Date']
+summ_table_cols = ['Station reference', 'Min', 'Q95', 'Median', 'Q5', 'Max', 'Start Date', 'End Date']
 reg_table_cols = ['NRMSE', 'MANE', 'Adj R2', 'Number of observations', 'Correlated sites', 'F value']
 
 cache_config = {
@@ -124,11 +124,46 @@ def build_reg_table(site_summ):
     return table1
 
 
-def build_summ_table(site_summ):
+# def build_stats(results):
+#     """
+
+#     """
+#     r1 = results['streamflow']
+
+#     ref = str(results['ref'].values)
+
+#     min1 = r1.min().values.round(3)
+#     max1 = r1.max().values.round(3)
+#     median1 = r1.median().values.round(3)
+#     q5 = r1.quantile(0.95).values.round(3)
+#     q95 = r1.quantile(0.05).values.round(3)
+#     count1 = int(r1.count().values)
+#     from_date = (pd.Timestamp(results.time.min().values).round('D') + pd.DateOffset(hours=12)).strftime('%Y-%m-%d')
+#     to_date = (pd.Timestamp(results.time.max().values).round('D') + pd.DateOffset(hours=12)).strftime('%Y-%m-%d')
+
+#     stats_dict = {'Station reference': ref, 'Min': min1, 'Q95': q95, 'Median': median1, 'Q5': q5, 'Max': max1, 'Count': count1, 'Start Date': from_date, 'End Date': to_date}
+
+#     return stats_dict
+
+
+def build_summ_table(results):
     """
 
     """
-    table1 = [{'Station reference': s['ref'], 'Min': s['min'], 'Median': s['median'], 'Max': s['max'], 'Start Date': (s['from_date'] + pd.DateOffset(hours=12)).strftime('%Y-%m-%d'), 'End Date': (s['to_date'] + pd.DateOffset(hours=12)).strftime('%Y-%m-%d')} for i, s in site_summ.iterrows()]
+    r1 = results['streamflow']
+
+    ref = str(results['ref'].values)
+
+    min1 = r1.min().values.round(3)
+    max1 = r1.max().values.round(3)
+    median1 = r1.median().values.round(3)
+    q5 = r1.quantile(0.95).values.round(3)
+    q95 = r1.quantile(0.05).values.round(3)
+    count1 = int(r1.count().values)
+    from_date = (pd.Timestamp(results.time.min().values).round('D') + pd.DateOffset(hours=12)).strftime('%Y-%m-%d')
+    to_date = (pd.Timestamp(results.time.max().values).round('D') + pd.DateOffset(hours=12)).strftime('%Y-%m-%d')
+
+    table1 = {'Station reference': ref, 'Min': min1, 'Q95': q95, 'Median': median1, 'Q5': q5, 'Max': max1, 'Count': count1, 'Start Date': from_date, 'End Date': to_date}
 
     return table1
 
@@ -935,20 +970,15 @@ def update_sites_values(selectedData, clickData):
 
 @app.callback(
     Output('summ_table', 'data'),
-    [Input('sites', 'value')],
-    [State('stn_dict', 'data'), State('method_dd', 'value'), State('active_select', 'value')])
+    [Input('flow_meas', 'data')])
 @cache.memoize()
-def update_summ_table(site, stn_dict_str, c_method, active):
-    if site is not None:
-        stn_dict = decode_obj(stn_dict_str)
-        meas_flow_stn_data1 = stn_dict[active]['measured'][c_method]
-        meas1 = meas_flow_stn_data1[meas_flow_stn_data1['station_id'] == site]
+def update_summ_table(flow_meas_str):
+    if flow_meas_str is not None:
+        if len(flow_meas_str) > 1:
+            flow_meas = decode_obj(flow_meas_str)
+            summ_table = build_summ_table(flow_meas)
 
-        if not meas1.empty:
-
-            summ_table = build_summ_table(meas1)
-
-            return summ_table
+            return [summ_table]
         else:
             return []
     else:
@@ -1129,31 +1159,34 @@ def render_plot(tab, flow_meas_str, flow_nat_str, allo_str, use_str, last_month,
 
     else:
 
-        if len(flow_meas_str) > 1:
+        if (flow_meas_str is not None) and (flow_nat_str is not None) and (allo_str is not None) and (use_str is not None):
+            if len(flow_meas_str) > 1:
 
-            if tab == 'fd_plot':
-                flow_meas = decode_obj(flow_meas_str)
-                flow_nat = decode_obj(flow_nat_str)
+                if tab == 'fd_plot':
+                    flow_meas = decode_obj(flow_meas_str)
+                    flow_nat = decode_obj(flow_nat_str)
 
-                fig1 = fig_flow_duration(flow_meas, flow_nat)
+                    fig1 = fig_flow_duration(flow_meas, flow_nat)
 
-            elif tab == 'cf_plot':
-                flow_meas = decode_obj(flow_meas_str)
+                elif tab == 'cf_plot':
+                    flow_meas = decode_obj(flow_meas_str)
 
-                fig1 = fig_cumulative_flow(flow_meas)
+                    fig1 = fig_cumulative_flow(flow_meas)
 
-            elif tab == 'hydro_plot':
-                flow_meas = decode_obj(flow_meas_str)
-                flow_nat = decode_obj(flow_nat_str)
+                elif tab == 'hydro_plot':
+                    flow_meas = decode_obj(flow_meas_str)
+                    flow_nat = decode_obj(flow_nat_str)
 
-                fig1 = fig_hydrograph(flow_meas, flow_nat)
+                    fig1 = fig_hydrograph(flow_meas, flow_nat)
 
-            elif tab == 'allo_plot':
-                flow_meas = decode_obj(flow_meas_str)
-                allo = decode_obj(allo_str)
-                use = decode_obj(use_str)
+                elif tab == 'allo_plot':
+                    flow_meas = decode_obj(flow_meas_str)
+                    allo = decode_obj(allo_str)
+                    use = decode_obj(use_str)
 
-                fig1 = fig_allo_use(allo, use, flow_meas)
+                    fig1 = fig_allo_use(allo, use, flow_meas)
+            else:
+                fig1 = info_str
         else:
             fig1 = info_str
 
