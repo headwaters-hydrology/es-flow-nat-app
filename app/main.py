@@ -89,6 +89,23 @@ cache_config = {
 
 cache = Cache(server, config=cache_config)
 
+tabs_styles = {
+    'height': '40px'
+}
+tab_style = {
+    'borderBottom': '1px solid #d6d6d6',
+    'padding': '5px',
+    'fontWeight': 'bold'
+}
+
+tab_selected_style = {
+    'borderTop': '1px solid #d6d6d6',
+    'borderBottom': '1px solid #d6d6d6',
+    'backgroundColor': '#119DFF',
+    'color': 'white',
+    'padding': '5px'
+}
+
 ###############################################
 ### Functions
 
@@ -883,12 +900,12 @@ def serve_layout():
         dcc.Loading(
                 id="loading-plots",
                 type="default",
-                children=[dcc.Tabs(id='plot_tabs', value='info_tab', children=[
-                            dcc.Tab(label='Info', value='info_tab'),
-                            dcc.Tab(label='Flow duration', value='fd_plot'),
-                            dcc.Tab(label='Cumulative flow', value='cf_plot'),
-                            dcc.Tab(label='Hydrograph', value='hydro_plot'),
-                            dcc.Tab(label='Allocation', value='allo_plot'),
+                children=[dcc.Tabs(id='plot_tabs', value='info_tab', style=tabs_styles, children=[
+                            dcc.Tab(label='Info', value='info_tab', style=tab_style, selected_style=tab_selected_style),
+                            dcc.Tab(label='Flow duration', value='fd_plot', style=tab_style, selected_style=tab_selected_style),
+                            dcc.Tab(label='Cumulative flow', value='cf_plot', style=tab_style, selected_style=tab_selected_style),
+                            dcc.Tab(label='Hydrograph', value='hydro_plot', style=tab_style, selected_style=tab_selected_style),
+                            dcc.Tab(label='Allocation', value='allo_plot', style=tab_style, selected_style=tab_selected_style),
                             ]
                         ),
         html.Div(id='plots')
@@ -1113,8 +1130,8 @@ def get_abstraction_data(flow_stn_id, tethys_obj, ds_ids_str, last_month, last_y
 
 
 @app.callback(Output('plots', 'children'),
-              [Input('plot_tabs', 'value'), Input('flow_meas', 'data')],
-              [State('flow_nat', 'data'), State('allocation', 'data'), State('abstraction', 'data'), State('last_month', 'data'), State('last_year', 'data')])
+              [Input('plot_tabs', 'value'), Input('flow_meas', 'data'), Input('flow_nat', 'data'), Input('allocation', 'data'), Input('abstraction', 'data')],
+              [State('last_month', 'data'), State('last_year', 'data')])
 @cache.memoize()
 def render_plot(tab, flow_meas_str, flow_nat_str, allo_str, use_str, last_month, last_year):
 

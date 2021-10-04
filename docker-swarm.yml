@@ -63,7 +63,7 @@ services:
       #   - traefik.http.routers.tethys-api-https.tls.certresolver=le
       #   - traefik.http.services.tethys-api.loadbalancer.server.port=80
   dash:
-    image: tethysts/tethys-es-rivers-dash:1.5
+    image: tethysts/tethys-es-rivers-dash:1.6
     # extra_hosts:
     #   - "host.docker.internal:host-gateway"
     # depends_on:
