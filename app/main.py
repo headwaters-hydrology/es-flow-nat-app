@@ -75,9 +75,9 @@ collection_methods = ['Gauging', 'Recorder']
 # base_url = 'http://tethys-api-int:80/tethys/data/'
 # base_url = 'https://api-int.tethys-ts.xyz/tethys/data/'
 
-catch_key_base = 'tethys/station_misc/{station_id}/catchment.geojson.zst'
+# catch_key_base = 'tethys/station_misc/{station_id}/catchment.geojson.zst'
 
-summ_table_cols = ['Station reference', 'Min', 'Q95', 'Median', 'Q5', 'Max', 'Start Date', 'End Date']
+summ_table_cols = ['Station reference', 'Min', 'Q95', 'Median', 'Q5', 'Max', 'Start Date', 'End Date', 'Catchment Area (ha)']
 reg_table_cols = ['NRMSE', 'MANE', 'Adj R2', 'Number of observations', 'Correlated sites', 'F value']
 
 cache_config = {
@@ -111,6 +111,10 @@ mat_stns_json = 'mataura_protected_waters_stns.json'
 with open(os.path.join(base_dir, mat_stns_json), 'r') as infile:
     mat_stns = orjson.loads(infile.read())
 
+catch_zstd = 'es_flow_sites_catchment_delin_2021-10-06.pkl.zstd'
+
+with open(os.path.join(base_dir, catch_zstd), 'rb') as infile:
+    rec_shed = utils.read_pkl_zstd(infile.read(), True)
 
 ###############################################
 ### Functions
@@ -186,7 +190,9 @@ def build_summ_table(results):
     from_date = (pd.Timestamp(results.time.min().values).round('D') + pd.DateOffset(hours=12)).strftime('%Y-%m-%d')
     to_date = (pd.Timestamp(results.time.max().values).round('D') + pd.DateOffset(hours=12)).strftime('%Y-%m-%d')
 
-    table1 = {'Station reference': ref, 'Min': min1, 'Q95': q95, 'Median': median1, 'Q5': q5, 'Max': max1, 'Count': count1, 'Start Date': from_date, 'End Date': to_date}
+    area1 = int(round(rec_shed[rec_shed.station_id == results['station_id'].values].iloc[0]['area']/10000))
+
+    table1 = {'Station reference': ref, 'Min': min1, 'Q95': q95, 'Median': median1, 'Q5': q5, 'Max': max1, 'Count': count1, 'Start Date': from_date, 'End Date': to_date, 'Catchment Area (ha)': area1}
 
     return table1
 
@@ -216,17 +222,25 @@ def get_results(tethys, dataset_id, station_id, from_date=None, to_date=None):
     return data3
 
 
-@cache.memoize()
-def get_catchment(station_id, remote):
+# def get_catchment(station_id, remote):
+#     """
+
+#     """
+#     bucket = remote['bucket']
+
+#     key1 = catch_key_base.format(station_id=station_id)
+#     obj = utils.get_object_s3(key1, remote['connection_config'], bucket, 'zstd')
+#     b2 = io.BytesIO(obj)
+#     c1 = gpd.read_file(b2)
+
+#     return c1
+
+
+def get_catchment(station_id):
     """
 
     """
-    bucket = remote['bucket']
-
-    key1 = catch_key_base.format(station_id=station_id)
-    obj = utils.get_object_s3(key1, remote['connection_config'], bucket, 'zstd')
-    b2 = io.BytesIO(obj)
-    c1 = gpd.read_file(b2)
+    c1 = rec_shed[rec_shed.station_id == station_id]
 
     return c1
 
@@ -642,7 +656,7 @@ def plot_catch_map(stn_dict, c_method, active, layout, wap_stn_data=None, flow_s
     if isinstance(flow_stn_id, str):
 
         ### Catchments
-        catch1 = get_catchment(flow_stn_id, flow_remote)
+        catch1 = get_catchment(flow_stn_id)
         catch1.crs = pyproj.CRS.from_epsg(2193)
         feature = catch1.to_crs(4326).iloc[0]['geometry']
 
@@ -1233,8 +1247,8 @@ def render_plot(tab, flow_meas_str, flow_nat_str, allo_str, use_str, last_month,
         return fig
 
 
-# if __name__ == '__main__':
-#     server.run(host='0.0.0.0', port=80)
-
 if __name__ == '__main__':
-    app.run_server(debug=True, host='0.0.0.0', port=8080)
+    server.run(host='0.0.0.0', port=80)
+
+# if __name__ == '__main__':
+#     app.run_server(debug=True, host='0.0.0.0', port=8080)
