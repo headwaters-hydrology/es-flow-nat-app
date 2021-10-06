@@ -106,6 +106,12 @@ tab_selected_style = {
     'padding': '5px'
 }
 
+mat_stns_json = 'mataura_protected_waters_stns.json'
+
+with open(os.path.join(base_dir, mat_stns_json), 'r') as infile:
+    mat_stns = orjson.loads(infile.read())
+
+
 ###############################################
 ### Functions
 
@@ -304,7 +310,7 @@ def get_flow_allo(allo, use, flow_meas):
 
     ## Combine
     # allo_use1 = pd.concat([flow1, allo1, use1], axis=1).dropna()
-    allo_use1 = xr.merge([allo1, use1], compat='override').to_dataframe().dropna()
+    allo_use1 = xr.merge([allo1, use1, flow_meas['streamflow']], compat='override').to_dataframe().dropna()
 
     return allo_use1, stn_ref, flow_q95
 
@@ -564,7 +570,7 @@ def fig_hydrograph(flow_meas, flow_nat):
     return fig
 
 
-def fig_allo_use(allo, use, flow_meas):
+def fig_allo_use(allo, use, flow_meas, stn_id):
     """
 
     """
@@ -587,10 +593,18 @@ def fig_allo_use(allo, use, flow_meas):
         line = dict(width=2, color = colors1[0]),
         opacity = 0.8)
 
+    if stn_id in mat_stns:
+        y1 = allo_use1['streamflow'] * 0.05
+        y1.loc[y1 > allo_use1['allocation']] = allo_use1['allocation'][y1 > allo_use1['allocation']]
+        text1 = '5% of daily mean flow'
+    else:
+        y1 = [flow_q95*0.3] * len(allo_use1.index)
+        text1 = '30% of Q95 flow'
+
     q95 = go.Scattergl(
         x=allo_use1.index,
-        y=[flow_q95*0.3] * len(allo_use1.index),
-        name = '30% of Q95 flow',
+        y=y1,
+        name = text1,
         line = dict(width=2, color = colors1[2]),
         opacity = 0.8)
 
@@ -1131,9 +1145,9 @@ def get_abstraction_data(flow_stn_id, tethys_obj, ds_ids_str, last_month, last_y
 
 @app.callback(Output('plots', 'children'),
               [Input('plot_tabs', 'value'), Input('flow_meas', 'data'), Input('flow_nat', 'data'), Input('allocation', 'data'), Input('abstraction', 'data')],
-              [State('last_month', 'data'), State('last_year', 'data')])
+              [State('last_month', 'data'), State('last_year', 'data'), State('sites', 'value')])
 @cache.memoize()
-def render_plot(tab, flow_meas_str, flow_nat_str, allo_str, use_str, last_month, last_year):
+def render_plot(tab, flow_meas_str, flow_nat_str, allo_str, use_str, last_month, last_year, stn_id):
 
     # print(flow_stn_id)
 
@@ -1201,7 +1215,7 @@ def render_plot(tab, flow_meas_str, flow_nat_str, allo_str, use_str, last_month,
                     allo = decode_obj(allo_str)
                     use = decode_obj(use_str)
 
-                    fig1 = fig_allo_use(allo, use, flow_meas)
+                    fig1 = fig_allo_use(allo, use, flow_meas, stn_id)
             else:
                 fig1 = info_str
         else:
@@ -1219,8 +1233,8 @@ def render_plot(tab, flow_meas_str, flow_nat_str, allo_str, use_str, last_month,
         return fig
 
 
-if __name__ == '__main__':
-    server.run(host='0.0.0.0', port=80)
-
 # if __name__ == '__main__':
-#     app.run_server(debug=True, host='0.0.0.0', port=8080)
+#     server.run(host='0.0.0.0', port=80)
+
+if __name__ == '__main__':
+    app.run_server(debug=True, host='0.0.0.0', port=8080)
