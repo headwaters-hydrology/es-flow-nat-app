@@ -1,4 +1,5 @@
-FROM tiangolo/uwsgi-nginx-flask:python3.8
+# FROM tiangolo/uwsgi-nginx-flask:python3.8
+FROM tethysts/tethys-dash-base:1.0
 
 # RUN apt-get update && apt-get install -y libspatialindex-dev python-rtree
 
@@ -16,3 +17,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 # RUN crontab /etc/cron.d/tethys-cron
 
 COPY ./app /app
+
+CMD ["gunicorn", "--conf", "app/gunicorn_conf.py", "--bind", "0.0.0.0:80", "app.main:server"]
