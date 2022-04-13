@@ -5,10 +5,11 @@ import io
 import os
 import geopandas as gpd
 import dash
-import dash_core_components as dcc
-import dash_html_components as html
+from dash import dcc, html, dash_table
+# import dash_core_components as dcc
+# import dash_html_components as html
+# import dash_table
 from dash.dependencies import Input, Output, State
-import dash_table
 import plotly.graph_objs as go
 import pandas as pd
 import numpy as np
@@ -106,12 +107,12 @@ tab_selected_style = {
     'padding': '5px'
 }
 
-mat_stns_json = 'mataura_protected_waters_stns.json'
+mat_stns_json = 'mataura_protected_waters_stns_2022-04-11.json'
 
 with open(os.path.join(base_dir, mat_stns_json), 'r') as infile:
     mat_stns = orjson.loads(infile.read())
 
-catch_zstd = 'es_flow_sites_catchment_delin_2021-10-06.pkl.zstd'
+catch_zstd = 'es_flow_sites_catchment_delin_2022-04-11.pkl.zstd'
 
 with open(os.path.join(base_dir, catch_zstd), 'rb') as infile:
     rec_shed = utils.read_pkl_zstd(infile.read(), True)
@@ -210,7 +211,7 @@ def get_results(tethys, dataset_id, station_id, from_date=None, to_date=None):
     """
 
     """
-    data2 = tethys.get_results(dataset_id, station_id, from_date=None, to_date=None, squeeze_dims=True, output='Dataset')
+    data2 = tethys.get_results(dataset_id, station_id, from_date=from_date, to_date=to_date, squeeze_dims=True, output='Dataset')
     data3 = data2
     data3['time'] = pd.to_datetime(data3['time'].values) + pd.DateOffset(hours=12)
     coords = list(data3.coords)
@@ -252,8 +253,12 @@ def stns_dict_to_gdf(stns):
     stns1 = copy.deepcopy(stns)
     geo1 = [shapely.geometry.Point(s['geometry']['coordinates']) for s in stns1]
 
-    [s.update({'min': s['stats']['min'], 'max': s['stats']['max'], 'median': s['stats']['median'], 'from_date': s['time_range']['from_date'], 'to_date': s['time_range']['to_date']}) for s in stns1]
-    [(s.pop('stats'), s.pop('geometry'), s.pop('time_range')) for s in stns1]
+    [s.update({'from_date': s['time_range']['from_date'], 'to_date': s['time_range']['to_date']}) for s in stns1]
+    for s in stns1:
+        _ = s.pop('geometry')
+        _ = s.pop('time_range')
+        if 'stats' in s:
+            _ = s.pop('stats')
 
     df1 = pd.DataFrame(stns1)
     df1['from_date'] = pd.to_datetime(df1['from_date'])
@@ -1247,8 +1252,8 @@ def render_plot(tab, flow_meas_str, flow_nat_str, allo_str, use_str, last_month,
         return fig
 
 
-if __name__ == '__main__':
-    server.run(host='0.0.0.0', port=80)
-
 # if __name__ == '__main__':
-#     app.run_server(debug=True, host='0.0.0.0', port=8080)
+#     server.run(host='0.0.0.0', port=80)
+
+if __name__ == '__main__':
+    app.run_server(debug=True, host='0.0.0.0', port=8080)

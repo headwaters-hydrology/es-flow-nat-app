@@ -1,9 +1,9 @@
 remotes:
   - bucket: es-hilltop
-    delimiter: /
-    connection_config: https://b2.tethys-ts.xyz
+    public_url: https://b2.tethys-ts.xyz/file
+    version: 4
   - bucket: nz-water-use
-    delimiter: /
-    connection_config: https://b2.tethys-ts.xyz
-cache_path: /cache
-# cache_path: /media/nvme1/data/cache
+    public_url: https://b2.tethys-ts.xyz/file
+    version: 4
+# cache_path: /cache
+cache_path: /media/nvme1/data/cache
