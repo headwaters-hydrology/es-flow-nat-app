@@ -128,7 +128,6 @@ def encode_obj(obj):
     cctx = zstd.ZstdCompressor(level=1)
     c_obj = codecs.encode(cctx.compress(pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL)), encoding="base64").decode()
 
-
     return c_obj
 
 
@@ -211,8 +210,7 @@ def get_results(tethys, dataset_id, station_id, from_date=None, to_date=None):
     """
 
     """
-    data2 = tethys.get_results(dataset_id, station_id, from_date=from_date, to_date=to_date, squeeze_dims=True)
-    data3 = data2
+    data3 = tethys.get_results(dataset_id, station_id, from_date=from_date, to_date=to_date, squeeze_dims=True)
     data3['time'] = pd.to_datetime(data3['time'].values) + pd.DateOffset(hours=12)
     coords = list(data3.coords)
     if 'geometry' in coords:
