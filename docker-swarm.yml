@@ -21,10 +21,10 @@ services:
         - traefik.enable=true
         - traefik.docker.network=traefik-public
         - traefik.constraint-label=traefik-public
-        - traefik.http.routers.es-dash-http.rule=Host(`es.nzrivers.xyz`)
+        - traefik.http.routers.es-dash-http.rule=Host(`es-flow-nat.nzrivers.xyz`)
         - traefik.http.routers.es-dash-http.entrypoints=http
         - traefik.http.routers.es-dash-http.middlewares=https-redirect
-        - traefik.http.routers.es-dash-https.rule=Host(`es.nzrivers.xyz`)
+        - traefik.http.routers.es-dash-https.rule=Host(`es-flow-nat.nzrivers.xyz`)
         - traefik.http.routers.es-dash-https.entrypoints=https
         - traefik.http.routers.es-dash-https.tls=true
         # - traefik.http.routers.es-dash-https.tls.certresolver=le
