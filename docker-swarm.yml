@@ -9,7 +9,7 @@ networks:
 
 services:
   dash:
-    image: tethysts/tethys-es-rivers-dash:1.8
+    image: tethysts/tethys-es-rivers-dash:1.9
     networks:
       # - net
       - traefik-public

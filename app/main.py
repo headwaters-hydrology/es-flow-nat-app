@@ -780,6 +780,7 @@ def get_flow_stn_list(stn_dict, c_method, active):
 ### The app
 map_layout = dict(mapbox = dict(layers = [], accesstoken = mapbox_access_token, style = "outdoors", center=dict(lat=lat1, lon=lon1), zoom=zoom1), margin = dict(r=0, l=0, t=0, b=0), autosize=True, hovermode='closest', height=map_height, showlegend = True, legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01))
 
+
 # @server.route('/wai-vis')
 # def main():
 def serve_layout():
@@ -1250,8 +1251,8 @@ def render_plot(tab, flow_meas_str, flow_nat_str, allo_str, use_str, last_month,
         return fig
 
 
-# if __name__ == '__main__':
-#     server.run(host='0.0.0.0', port=80)
-
 if __name__ == '__main__':
-    app.run_server(debug=True, host='0.0.0.0', port=8080)
+    server.run(host='0.0.0.0', port=80)
+
+# if __name__ == '__main__':
+#     app.run_server(debug=True, host='0.0.0.0', port=8080)

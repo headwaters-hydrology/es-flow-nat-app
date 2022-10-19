@@ -2,7 +2,7 @@ version: '3'
 
 services:
   es-rivers-dash:
-    image: tethysts/tethys-es-rivers-dash:1.8
+    image: tethysts/tethys-es-rivers-dash:1.9
     # extra_hosts:
     #   - "host.docker.internal:host-gateway"
     ports:
