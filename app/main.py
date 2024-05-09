@@ -14,7 +14,7 @@ import plotly.graph_objs as go
 import pandas as pd
 import numpy as np
 import urllib
-from tethysts import utils
+# from tethysts import utils
 import requests
 import zstandard as zstd
 import orjson
@@ -22,22 +22,27 @@ import flask
 import codecs
 import pickle
 import shapely
-import yaml
+# import yaml
 from gistools import vector
 import pyproj
 # import dash_leaflet as dl
 # import dash_leaflet.express as dlx
 import copy
 import xarray as xr
-from flask_caching import Cache
+# from flask_caching import Cache
 import base64
-from tethysts import Tethys
+import pathlib
+import booklet
+# from tethysts import Tethys
 # from dash_extensions.javascript import Namespace
 # from util import app_ts_summ, sel_ts_summ, ecan_ts_data
 
 pd.options.display.max_columns = 10
 
 # external_stylesheets = ['https://codepen.io/chriddyp/pen/dZVMbK.css']
+
+script_path = pathlib.Path(os.path.realpath(os.path.dirname(__file__)))
+assets_path = script_path.joinpath('assets')
 
 # server = flask.Flask(__name__)
 # app = dash.Dash(__name__, external_stylesheets=external_stylesheets, server=server,  url_base_pathname = '/')
@@ -52,14 +57,15 @@ app = dash.Dash(__name__, server=server,  url_base_pathname = '/')
 ##########################################
 ### Parameters
 
-base_dir = os.path.realpath(os.path.dirname(__file__))
+# with open(script_path.joinpath('parameters.yml')) as param:
+#     param = yaml.safe_load(param)
 
-with open(os.path.join(base_dir, 'parameters.yml')) as param:
-    param = yaml.safe_load(param)
+# remotes = param['remotes']
 
-remotes = param['remotes']
+# flow_remote = [r for r in remotes if r['bucket'] == 'es-hilltop'][0]
 
-flow_remote = [r for r in remotes if r['bucket'] == 'es-hilltop'][0]
+datasets_path = assets_path.joinpath('datasets.json')
+stns_path = assets_path.joinpath('stns_data.blt')
 
 ts_plot_height = 600
 map_height = 700
@@ -81,14 +87,14 @@ collection_methods = ['Gauging', 'Recorder']
 summ_table_cols = ['Station reference', 'Min', 'Q95', 'Median', 'Q5', 'Max', 'Start Date', 'End Date', 'Catchment Area (ha)']
 reg_table_cols = ['NRMSE', 'MANE', 'Adj R2', 'Number of observations', 'Correlated sites', 'F value']
 
-cache_config = {
-    # "DEBUG": True,          # some Flask specific configs
-    "CACHE_TYPE": "FileSystemCache",  # Flask-Caching related configs
-    "CACHE_DEFAULT_TIMEOUT": 24*60*60,
-    'CACHE_DIR': param['cache_path']
-}
+# cache_config = {
+#     # "DEBUG": True,          # some Flask specific configs
+#     "CACHE_TYPE": "FileSystemCache",  # Flask-Caching related configs
+#     "CACHE_DEFAULT_TIMEOUT": 24*60*60,
+#     'CACHE_DIR': param['cache_path']
+# }
 
-cache = Cache(server, config=cache_config)
+# cache = Cache(server, config=cache_config)
 
 tabs_styles = {
     'height': '40px'
@@ -109,16 +115,60 @@ tab_selected_style = {
 
 mat_stns_json = 'mataura_protected_waters_stns_2022-04-11.json'
 
-with open(os.path.join(base_dir, mat_stns_json), 'r') as infile:
+with open(assets_path.joinpath(mat_stns_json), 'r') as infile:
     mat_stns = orjson.loads(infile.read())
 
 catch_zstd = 'es_flow_sites_catchment_delin_2022-04-11.pkl.zstd'
 
-with open(os.path.join(base_dir, catch_zstd), 'rb') as infile:
-    rec_shed = utils.read_pkl_zstd(infile.read(), True)
-
 ###############################################
 ### Functions
+
+
+def read_pkl_zstd(obj, unpickle=False):
+    """
+    Deserializer from a pickled object compressed with zstandard.
+
+    Parameters
+    ----------
+    obj : bytes or str
+        Either a bytes object that has been pickled and compressed or a str path to the file object.
+    unpickle : bool
+        Should the bytes object be unpickled or left as bytes?
+
+    Returns
+    -------
+    Python object
+    """
+    if isinstance(obj, str):
+        with open(obj, 'rb') as p:
+            dctx = zstd.ZstdDecompressor()
+            with dctx.stream_reader(p) as reader:
+                obj1 = reader.read()
+
+    elif isinstance(obj, bytes):
+        dctx = zstd.ZstdDecompressor()
+        obj1 = dctx.decompress(obj)
+    else:
+        raise TypeError('obj must either be a str path or a bytes object')
+
+    if unpickle:
+        obj1 = pickle.loads(obj1)
+
+    return obj1
+
+
+with open(assets_path.joinpath(catch_zstd), 'rb') as infile:
+    rec_shed = read_pkl_zstd(infile.read(), True)
+
+
+def get_blt_value(file, key):
+    """
+
+    """
+    with booklet.open(file) as f:
+        value = f[key]
+
+    return value
 
 
 def encode_obj(obj):
@@ -197,28 +247,23 @@ def build_summ_table(results):
     return table1
 
 
-def get_stations(tethys, dataset_id):
+def get_stations(dataset_id):
     """
 
     """
-    fn_stns = tethys.get_stations(dataset_id)
+    stns = get_blt_value(stns_path, dataset_id)
 
-    return fn_stns
+    return stns
 
 
-def get_results(tethys, dataset_id, station_id, from_date=None, to_date=None):
+def get_results(dataset_id, station_id, from_date=None, to_date=None):
     """
 
     """
-    data3 = tethys.get_results(dataset_id, station_id, from_date=from_date, to_date=to_date, squeeze_dims=True)
-    data3['time'] = pd.to_datetime(data3['time'].values) + pd.DateOffset(hours=12)
-    coords = list(data3.coords)
-    if 'geometry' in coords:
-        data3 = data3.drop('geometry')
-    if 'height' in coords:
-        data3 = data3.drop('height')
+    data = get_blt_value(assets_path.joinpath(dataset_id+'.blt'), station_id)
+    data2 = data.sel(time=slice(from_date, to_date))
 
-    return data3
+    return data2
 
 
 # def get_catchment(station_id, remote):
@@ -284,7 +329,7 @@ def combine_flows(flow_meas, flow_nat):
     return flow1, stn_ref
 
 
-@cache.memoize()
+# @cache.memoize()
 def get_flow_duration(flow_meas, flow_nat):
     """
 
@@ -311,7 +356,7 @@ def get_flow_duration(flow_meas, flow_nat):
     return flow2, flow3, stn_ref
 
 
-@cache.memoize()
+# @cache.memoize()
 def get_flow_allo(allo, use, flow_meas):
     """
 
@@ -332,7 +377,7 @@ def get_flow_allo(allo, use, flow_meas):
     return allo_use1, stn_ref, flow_q95
 
 
-@cache.memoize()
+# @cache.memoize()
 def get_cumulative_flows(flow_meas):
     """
 
@@ -405,7 +450,7 @@ def fig_flow_duration(flow_meas, flow_nat):
     """
     colors1 = ['rgb(102,194,165)', 'red', 'rgb(252,141,0)', 'rgb(141,160,203)']
 
-    print('fig_fd triggered')
+    # print('fig_fd triggered')
 
     ## Get data
     flow2, flow3, stn_ref = get_flow_duration(flow_meas, flow_nat)
@@ -489,13 +534,13 @@ def fig_cumulative_flow(flow_nat):
 
         fig = go.Figure(layout=layout)
 
-        fig.add_vline(x=today_dayofyear,
-                      line_width=3,
-                      line_dash="dash",
-                      line_color="green",
-                      annotation_text='Today',
-                      opacity=0.5,
-                      annotation_position='top')
+        # fig.add_vline(x=today_dayofyear,
+        #               line_width=3,
+        #               line_dash="dash",
+        #               line_color="green",
+        #               annotation_text='Today',
+        #               opacity=0.5,
+        #               annotation_position='top')
 
         fig.add_trace(go.Scattergl(
             x=x+x_rev,
@@ -533,7 +578,7 @@ def fig_cumulative_flow(flow_nat):
             fig.add_trace(go.Scattergl(
                 x=current_cumsum1.index, y=current_cumsum1['flow'].tolist(),
                 line_color='rgb(0,160,240)',
-                name="This year's flow",
+                name="2024 flow",
                 line_width=3
                 ))
 
@@ -786,14 +831,14 @@ map_layout = dict(mapbox = dict(layers = [], accesstoken = mapbox_access_token, 
 def serve_layout():
     ################################################
     ### Initialize base data
-    run_date = pd.Timestamp.now(tz='utc').round('s').tz_localize(None)
+    # run_date = pd.Timestamp.now(tz='utc').round('s').tz_localize(None)
+    run_date = pd.Timestamp('2024-05-08') # Fixing the date
     last_month = (run_date - pd.tseries.offsets.MonthEnd(1)).floor('D')
     last_year = ((last_month - pd.DateOffset(years=1) - pd.DateOffset(days=2)) + pd.tseries.offsets.MonthEnd(1)) + pd.DateOffset(days=1)
 
     ## Get datasets and filter
-    tethys = Tethys(remotes)
-
-    datasets = tethys.datasets.copy()
+    with open(datasets_path, 'rb') as f:
+        datasets = orjson.loads(f.read())
 
     fn_ds = [ds for ds in datasets if ds['parameter'] == 'naturalised_streamflow'][0]
 
@@ -825,20 +870,20 @@ def serve_layout():
 
     ## Get stations
     # rec flow
-    rec_stns = get_stations(tethys, rec_flow_ds['dataset_id'])
+    rec_stns = get_stations(rec_flow_ds['dataset_id'])
     rec_stns_active = [s for s in rec_stns if pd.Timestamp(s['time_range']['to_date']) > last_year]
     rec_stns_ids = set([s['station_id'] for s in rec_stns])
     rec_stns_active_ids = set([s['station_id'] for s in rec_stns_active])
 
     # man flow
-    man_stns = get_stations(tethys, man_flow_ds['dataset_id'])
+    man_stns = get_stations(man_flow_ds['dataset_id'])
     man_stns = [s for s in man_stns if not s['station_id'] in rec_stns_ids]
     man_stns_active = [s for s in man_stns if pd.Timestamp(s['time_range']['to_date']) > last_year]
     man_stns_ids = set([s['station_id'] for s in man_stns])
     man_stns_active_ids = set([s['station_id'] for s in man_stns_active])
 
     # Flow nat
-    fn_stns = get_stations(tethys, fn_ds['dataset_id'])
+    fn_stns = get_stations(fn_ds['dataset_id'])
 
     rec_fn_stns = [s for s in fn_stns if s['station_id'] in rec_stns_ids]
     man_fn_stns = [s for s in fn_stns if s['station_id'] in man_stns_ids]
@@ -877,7 +922,7 @@ def serve_layout():
                  'naturalised': {'Recorder': stns_dict_to_gdf(rec_fn_stns_active), 'Gauging': stns_dict_to_gdf(man_fn_stns_active)}}}
 
     # water use
-    wu_stns = get_stations(tethys, use_ds['dataset_id'])
+    wu_stns = get_stations(use_ds['dataset_id'])
     wap_stn_data = stns_dict_to_gdf(wu_stns)
 
     # Allocation
@@ -967,7 +1012,6 @@ def serve_layout():
         )
 
     ], className='six columns', style={'margin': 10, 'height': 900}),
-    dcc.Store(id='tethys', data=encode_obj(tethys)),
     dcc.Store(id='flow_meas', data=''),
     dcc.Store(id='flow_nat', data=''),
     dcc.Store(id='allocation', data=''),
@@ -1020,7 +1064,7 @@ def update_sites_values(selectedData, clickData):
 @app.callback(
     Output('summ_table', 'data'),
     [Input('flow_meas', 'data')])
-@cache.memoize()
+# @cache.memoize()
 def update_summ_table(flow_meas_str):
     if flow_meas_str is not None:
         if len(flow_meas_str) > 1:
@@ -1038,7 +1082,7 @@ def update_summ_table(flow_meas_str):
     Output('reg_table', 'data'),
     [Input('sites', 'value')],
     [State('stn_dict', 'data'), State('method_dd', 'value'), State('active_select', 'value')])
-@cache.memoize()
+# @cache.memoize()
 def update_reg_table(site, stn_dict_str, c_method, active):
     if site is not None:
         if c_method == 'Gauging':
@@ -1064,7 +1108,7 @@ def update_reg_table(site, stn_dict_str, c_method, active):
         Output('sites', 'options'),
         [Input('method_dd', 'value'), Input('active_select', 'value')],
         [State('stn_names', 'data')])
-@cache.memoize()
+# @cache.memoize()
 def update_sites_options(c_method, active, stn_names_json):
     stn_names_dict = orjson.loads(stn_names_json)
 
@@ -1076,7 +1120,7 @@ def update_sites_options(c_method, active, stn_names_json):
 @app.callback(Output('site-map', 'figure'),
               [Input('method_dd', 'value'), Input('sites', 'value'), Input('active_select', 'value')],
               [State('stn_dict', 'data'), State('wap_stn_data', 'data'), State('site-map', 'figure')])
-@cache.memoize()
+# @cache.memoize()
 def render_map_complex(c_method, flow_stn_id, active, stn_dict_str, wap_stn_data_str, old_fig):
     # print(flow_stn_id)
 
@@ -1096,14 +1140,13 @@ def render_map_complex(c_method, flow_stn_id, active, stn_dict_str, wap_stn_data
 @app.callback(
     Output('flow_meas', 'data'),
     [Input('sites', 'value')],
-    [State('tethys', 'data'), State('ds_ids', 'data'), State('method_dd', 'value')])
+    [State('ds_ids', 'data'), State('method_dd', 'value')])
 # @cache.memoize()
-def get_flow_meas_data(flow_stn_id, tethys_obj, ds_ids_str, c_method):
+def get_flow_meas_data(flow_stn_id, ds_ids_str, c_method):
     if isinstance(flow_stn_id, str):
-        tethys = decode_obj(tethys_obj)
         ds_id = orjson.loads(ds_ids_str)['measured'][c_method]
 
-        ts1 = get_results(tethys, ds_id, flow_stn_id)
+        ts1 = get_results(ds_id, flow_stn_id)
 
         ts1_obj = encode_obj(ts1)
 
@@ -1113,14 +1156,13 @@ def get_flow_meas_data(flow_stn_id, tethys_obj, ds_ids_str, c_method):
 @app.callback(
     Output('flow_nat', 'data'),
     [Input('sites', 'value')],
-    [State('tethys', 'data'), State('ds_ids', 'data'), State('method_dd', 'value')])
+    [ State('ds_ids', 'data'), State('method_dd', 'value')])
 # @cache.memoize()
-def get_flow_nat_data(flow_stn_id, tethys_obj, ds_ids_str, c_method):
+def get_flow_nat_data(flow_stn_id, ds_ids_str, c_method):
     if isinstance(flow_stn_id, str):
-        tethys = decode_obj(tethys_obj)
         ds_id = orjson.loads(ds_ids_str)['naturalised'][c_method]
 
-        ts1 = get_results(tethys, ds_id, flow_stn_id)
+        ts1 = get_results(ds_id, flow_stn_id)
 
         ts1_obj = encode_obj(ts1)
 
@@ -1130,14 +1172,13 @@ def get_flow_nat_data(flow_stn_id, tethys_obj, ds_ids_str, c_method):
 @app.callback(
     Output('allocation', 'data'),
     [Input('sites', 'value')],
-    [State('tethys', 'data'), State('ds_ids', 'data'), State('last_month', 'data'), State('last_year', 'data')])
+    [State('ds_ids', 'data'), State('last_month', 'data'), State('last_year', 'data')])
 # @cache.memoize()
-def get_allocation_data(flow_stn_id, tethys_obj, ds_ids_str, last_month, last_year):
+def get_allocation_data(flow_stn_id, ds_ids_str, last_month, last_year):
     if isinstance(flow_stn_id, str):
-        tethys = decode_obj(tethys_obj)
         ds_id = orjson.loads(ds_ids_str)['allocation']
 
-        ts1 = get_results(tethys, ds_id, flow_stn_id, last_year, last_month)
+        ts1 = get_results(ds_id, flow_stn_id, last_year, last_month)
 
         ts1_obj = encode_obj(ts1)
 
@@ -1147,14 +1188,13 @@ def get_allocation_data(flow_stn_id, tethys_obj, ds_ids_str, last_month, last_ye
 @app.callback(
     Output('abstraction', 'data'),
     [Input('sites', 'value')],
-    [State('tethys', 'data'), State('ds_ids', 'data'), State('last_month', 'data'), State('last_year', 'data')])
+    [State('ds_ids', 'data'), State('last_month', 'data'), State('last_year', 'data')])
 # @cache.memoize()
-def get_abstraction_data(flow_stn_id, tethys_obj, ds_ids_str, last_month, last_year):
+def get_abstraction_data(flow_stn_id, ds_ids_str, last_month, last_year):
     if isinstance(flow_stn_id, str):
-        tethys = decode_obj(tethys_obj)
         ds_id = orjson.loads(ds_ids_str)['abstraction']
 
-        ts1 = get_results(tethys, ds_id, flow_stn_id, last_year, last_month)
+        ts1 = get_results(ds_id, flow_stn_id, last_year, last_month)
 
         ts1_obj = encode_obj(ts1)
 
@@ -1164,7 +1204,7 @@ def get_abstraction_data(flow_stn_id, tethys_obj, ds_ids_str, last_month, last_y
 @app.callback(Output('plots', 'children'),
               [Input('plot_tabs', 'value'), Input('flow_meas', 'data'), Input('flow_nat', 'data'), Input('allocation', 'data'), Input('abstraction', 'data')],
               [State('last_month', 'data'), State('last_year', 'data'), State('sites', 'value')])
-@cache.memoize()
+# @cache.memoize()
 def render_plot(tab, flow_meas_str, flow_nat_str, allo_str, use_str, last_month, last_year, stn_id):
 
     # print(flow_stn_id)
@@ -1201,7 +1241,7 @@ def render_plot(tab, flow_meas_str, flow_nat_str, allo_str, use_str, last_month,
             ### More info
             A more thorough description of the streamflow naturalisation method can be found [here](https://github.com/mullenkamp/nz-flow-naturalisation/blob/main/README.rst).
         """
-    print(tab)
+    # print(tab)
 
     if tab == 'info_tab':
         fig1 = info_str
@@ -1251,8 +1291,8 @@ def render_plot(tab, flow_meas_str, flow_nat_str, allo_str, use_str, last_month,
         return fig
 
 
-if __name__ == '__main__':
-    server.run(host='0.0.0.0', port=80)
-
 # if __name__ == '__main__':
-#     app.run_server(debug=True, host='0.0.0.0', port=8080)
+#     server.run(host='0.0.0.0', port=80)
+
+if __name__ == '__main__':
+    app.run_server(debug=False, host='0.0.0.0', port=8061)

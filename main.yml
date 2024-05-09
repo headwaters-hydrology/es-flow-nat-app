@@ -1,0 +1,33 @@
+name: flow-nat-app
+channels:
+- conda-forge
+- mullenkamp
+- defaults
+dependencies:
+- python=3.8
+- plotly=5.15.0
+- dash=2.11.1
+- pandas<2
+- xarray=2022.06.0
+- rtree=0.9.7
+- gunicorn=20.1.0
+- requests=2.27.1
+- zstandard=0.22.0
+- orjson=3.6.7
+- shapely<2
+# - pyyaml=5.4.1
+- scipy=1.9.2
+- numpy=1.23.0
+- pydantic<2
+- numexpr=2.8.3
+- numcodecs=0.9.1
+- jmespath=1.0.0
+- werkzeug=2.0.3
+- protobuf=3.20
+# - dash-bootstrap-components=1.4.1
+# - dash-mantine-components=0.12.1
+- dash-extensions=1.0.1
+- geobuf=1.1.1
+- booklet=0.1.15
+- gistools=1.2.28
+
